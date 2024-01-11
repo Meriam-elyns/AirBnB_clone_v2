@@ -1,12 +1,68 @@
-#!/usr/bin/env bash
-# sets up the web servers for the deployment of web_static
+# Prepare web server for deployment
 
-sudo apt-get -y update
-sudo apt-get -y upgrade
-sudo apt-get -y install nginx
-sudo mkdir -p /data/web_static/releases/test /data/web_static/shared
-echo "This is a test" | sudo tee /data/web_static/releases/test/index.html
-sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
-sudo chown -hR ubuntu:ubuntu /data/
-sudo sed -i '38i\\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n' /etc/nginx/sites-available/default
-sudo service nginx start
+exec {'update':
+  provider => shell,
+  command  => 'sudo apt-get -y update',
+  before   => Exec['install nginx'],
+}
+
+exec {'install nginx':
+  provider => shell,
+  command  => 'sudo apt-get -y install nginx',
+  before   => Exec['start nginx'],
+}
+
+exec {'start nginx':
+  provider => shell,
+  command  => 'sudo service nginx start',
+  before   => Exec['create test directory'],
+}
+
+exec {'create shared directory':
+  provider => shell,
+  command  => 'sudo mkdir -p /data/web_static/shared/',
+  before   => Exec['create test directory'],
+}
+
+exec {'create test directory':
+  provider => shell,
+  command  => 'sudo mkdir -p /data/web_static/releases/test/',
+  before   => Exec['add test content'],
+}
+
+exec {'add test content':
+  provider => shell,
+  command  => 'echo "<html>
+    <head>
+    </head>
+    <body>
+      Holberton School
+    </body>
+  </html>" > /data/web_static/releases/test/index.html',
+  before   => Exec['create symbolic link to current'],
+}
+
+exec {'create symbolic link to current':
+  provider => shell,
+  command  => 'sudo ln -sf /data/web_static/releases/test/ /data/web_static/current',
+  before   => File['/data/'],
+}
+
+file {'/data/':
+  ensure  => directory,
+  owner   => 'ubuntu',
+  group   => 'ubuntu',
+  recurse => true,
+  before  => Exec['serve current to hbnb_static'],
+}
+
+exec {'serve current to hbnb_static':
+  provider => shell,
+  command  => 'sed -i "61i\ \n\tlocation /hbnb_static {\n\t\talias /data/web_static/current;\n\t\tautoindex off;\n\t}" /etc/nginx/sites-available/default',
+  before   => Exec['restart nginx'],
+}
+
+exec {'restart nginx':
+  provider => shell,
+  command  => 'sudo service nginx restart',
+}
