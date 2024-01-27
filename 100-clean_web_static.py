@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """
-Distributes an archive to my web servers,
-using the function deploy
+Deletes out-of-date archives,
+using the function do_clean
 """
 from fabric.api import *
 from datetime import datetime
@@ -59,3 +59,18 @@ def do_deploy(archive_path):
         return True
     except:
         return False
+
+
+def do_clean(number=0):
+    ''' Removes out of date archives locally and remotely '''
+    number = int(number)
+    if number == 0:
+        number = 2
+    else:
+        number += 1
+
+    local('cd versions; ls -t | tail -n +{} | xargs rm -rf'
+          .format(number))
+    releases_path = '/data/web_static/releases'
+    run('cd {}; ls -t | tail -n +{} | xargs rm -rf'
+        .format(releases_path, number))
